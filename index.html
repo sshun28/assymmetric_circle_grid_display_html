@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenCV Asymmetric Circle Grid</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --ink: #111111;
+      --muted: #5d5d5d;
+      --line: #d8d8d8;
+      --panel: rgba(255, 255, 255, 0.96);
+      --control: #f3f3f3;
+      --control-hover: #e8e8e8;
+      --focus: #2b2b2b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font-family: "Yu Gothic", "Meiryo", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: #ffffff;
+      cursor: pointer;
+      min-height: 38px;
+      padding: 8px 14px;
+      border-radius: 4px;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+
+    button:hover {
+      background: #333333;
+    }
+
+    button.secondary {
+      background: #ffffff;
+      color: var(--ink);
+    }
+
+    button.secondary:hover {
+      background: var(--control-hover);
+    }
+
+    input[type="number"],
+    input[type="range"] {
+      accent-color: #111111;
+    }
+
+    input[type="number"] {
+      width: 86px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #ffffff;
+      color: var(--ink);
+      padding: 7px 8px;
+    }
+
+    input:focus,
+    button:focus {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .app {
+      width: 100vw;
+      height: 100vh;
+      background: var(--bg);
+      position: relative;
+    }
+
+    .calibration-view,
+    .grid-view {
+      width: 100%;
+      height: 100%;
+      background: #ffffff;
+    }
+
+    .calibration-view {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 24px;
+      gap: 18px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .hint {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .readout {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 10px 12px;
+      min-width: 148px;
+      text-align: right;
+      background: #ffffff;
+    }
+
+    .readout span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .readout strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 17px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .card-stage {
+      display: grid;
+      place-items: center;
+      min-height: 0;
+      overflow: auto;
+      border: 1px dashed #ededed;
+      background:
+        linear-gradient(#ffffff, #ffffff) padding-box,
+        repeating-linear-gradient(90deg, #fbfbfb 0 1px, transparent 1px 24px),
+        repeating-linear-gradient(0deg, #fbfbfb 0 1px, transparent 1px 24px);
+    }
+
+    .credit-card-frame {
+      position: relative;
+      border: 2px solid #000000;
+      background: transparent;
+      flex: 0 0 auto;
+    }
+
+    .credit-card-frame::before,
+    .credit-card-frame::after {
+      content: "";
+      position: absolute;
+      background: #000000;
+      opacity: 0.55;
+    }
+
+    .credit-card-frame::before {
+      left: 50%;
+      top: 8px;
+      bottom: 8px;
+      width: 1px;
+      transform: translateX(-50%);
+    }
+
+    .credit-card-frame::after {
+      top: 50%;
+      left: 8px;
+      right: 8px;
+      height: 1px;
+      transform: translateY(-50%);
+    }
+
+    .card-label {
+      position: absolute;
+      left: 10px;
+      top: 8px;
+      padding: 2px 5px;
+      background: #ffffff;
+      color: #222222;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .calibration-controls {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto auto;
+      align-items: center;
+      gap: 10px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+
+    .calibration-controls label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .calibration-controls input[type="range"] {
+      width: 100%;
+      min-width: 160px;
+    }
+
+    .stepper {
+      width: 38px;
+      padding: 0;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .grid-view {
+      display: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .grid-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: #ffffff;
+    }
+
+    .settings {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: min(330px, calc(100vw - 28px));
+      max-height: calc(100vh - 28px);
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--ink);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+    }
+
+    .settings summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 12px 14px;
+      font-weight: 700;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .settings summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .settings summary::after {
+      content: "−";
+      float: right;
+      color: var(--muted);
+    }
+
+    .settings:not([open]) summary {
+      border-bottom: 0;
+    }
+
+    .settings:not([open]) summary::after {
+      content: "+";
+    }
+
+    .settings-body {
+      padding: 14px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px 12px;
+      align-items: center;
+    }
+
+    .form-grid label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .metrics {
+      margin: 14px 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .settings-actions button {
+      flex: 1;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 680px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        min-height: 100vh;
+        height: auto;
+      }
+
+      .calibration-view {
+        min-height: 100vh;
+        padding: 16px;
+      }
+
+      .topbar {
+        display: grid;
+      }
+
+      .readout {
+        text-align: left;
+      }
+
+      .calibration-controls {
+        grid-template-columns: 1fr auto auto;
+      }
+
+      .calibration-controls label,
+      .calibration-controls input[type="range"] {
+        grid-column: 1 / -1;
+      }
+
+      .calibration-controls .primary-action {
+        grid-column: 1 / -1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section id="calibrationView" class="calibration-view" aria-labelledby="calibrationTitle">
+      <div class="topbar">
+        <div>
+          <h1 id="calibrationTitle" class="title">スケールキャリブレーション</h1>
+          <p class="hint">実物のクレジットカードを画面中央の枠に重ね、外周がぴったり合うように調整します。</p>
+        </div>
+        <div class="readout" aria-live="polite">
+          <span>現在のスケール</span>
+          <strong id="calibrationReadout">3.78 px/mm</strong>
+        </div>
+      </div>
+
+      <div class="card-stage" aria-label="クレジットカード校正エリア">
+        <div id="cardFrame" class="credit-card-frame">
+          <span class="card-label">85.60 mm × 53.98 mm</span>
+        </div>
+      </div>
+
+      <div class="calibration-controls">
+        <label for="scaleRange">カード枠サイズ</label>
+        <input id="scaleRange" type="range" min="2" max="16" step="0.01" value="3.7795">
+        <button id="decreaseScale" class="secondary stepper" type="button" aria-label="縮小">−</button>
+        <button id="increaseScale" class="secondary stepper" type="button" aria-label="拡大">+</button>
+        <button id="showGrid" class="primary-action" type="button">グリッド表示モード</button>
+      </div>
+    </section>
+
+    <section id="gridView" class="grid-view" aria-label="非対称円グリッド表示">
+      <canvas id="gridCanvas" class="grid-canvas"></canvas>
+
+      <details class="settings" open>
+        <summary>グリッド設定</summary>
+        <div class="settings-body">
+          <div class="form-grid">
+            <label for="diameterMm">円の直径 (mm)</label>
+            <input id="diameterMm" type="number" min="0.1" step="0.1" value="10">
+
+            <label for="spacingMm">中心間距離 (mm)</label>
+            <input id="spacingMm" type="number" min="0.1" step="0.1" value="20">
+
+            <label for="rows">行数</label>
+            <input id="rows" type="number" min="1" step="1" value="11">
+
+            <label for="cols">列数</label>
+            <input id="cols" type="number" min="1" step="1" value="4">
+          </div>
+
+          <div id="gridMetrics" class="metrics" aria-live="polite"></div>
+
+          <div class="settings-actions">
+            <button id="backToCalibration" class="secondary" type="button">再校正</button>
+            <button id="redrawGrid" type="button">再描画</button>
+          </div>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const CREDIT_CARD_WIDTH_MM = 85.60;
+      const CREDIT_CARD_HEIGHT_MM = 53.98;
+      const DEFAULT_PX_PER_MM = 96 / 25.4;
+
+      const state = {
+        pxPerMm: DEFAULT_PX_PER_MM,
+        gridVisible: false
+      };
+
+      const calibrationView = document.getElementById("calibrationView");
+      const gridView = document.getElementById("gridView");
+      const cardFrame = document.getElementById("cardFrame");
+      const scaleRange = document.getElementById("scaleRange");
+      const calibrationReadout = document.getElementById("calibrationReadout");
+      const showGrid = document.getElementById("showGrid");
+      const decreaseScale = document.getElementById("decreaseScale");
+      const increaseScale = document.getElementById("increaseScale");
+      const canvas = document.getElementById("gridCanvas");
+      const ctx = canvas.getContext("2d");
+      const diameterInput = document.getElementById("diameterMm");
+      const spacingInput = document.getElementById("spacingMm");
+      const rowsInput = document.getElementById("rows");
+      const colsInput = document.getElementById("cols");
+      const gridMetrics = document.getElementById("gridMetrics");
+      const redrawGrid = document.getElementById("redrawGrid");
+      const backToCalibration = document.getElementById("backToCalibration");
+
+      function clampNumber(value, min, fallback) {
+        const number = Number(value);
+        if (!Number.isFinite(number) || number < min) {
+          return fallback;
+        }
+        return number;
+      }
+
+      function updateCalibrationFrame() {
+        state.pxPerMm = Number(scaleRange.value);
+        const widthPx = CREDIT_CARD_WIDTH_MM * state.pxPerMm;
+        const heightPx = CREDIT_CARD_HEIGHT_MM * state.pxPerMm;
+        cardFrame.style.width = `${widthPx}px`;
+        cardFrame.style.height = `${heightPx}px`;
+        calibrationReadout.textContent = `${state.pxPerMm.toFixed(3)} px/mm`;
+      }
+
+      function adjustScale(delta) {
+        const min = Number(scaleRange.min);
+        const max = Number(scaleRange.max);
+        const next = Math.min(max, Math.max(min, Number(scaleRange.value) + delta));
+        scaleRange.value = next.toFixed(2);
+        updateCalibrationFrame();
+      }
+
+      function getGridSettings() {
+        return {
+          diameterMm: clampNumber(diameterInput.value, 0.1, 10),
+          spacingMm: clampNumber(spacingInput.value, 0.1, 20),
+          rows: Math.max(1, Math.round(clampNumber(rowsInput.value, 1, 11))),
+          cols: Math.max(1, Math.round(clampNumber(colsInput.value, 1, 4)))
+        };
+      }
+
+      function syncIntegerInputs() {
+        rowsInput.value = String(Math.max(1, Math.round(Number(rowsInput.value) || 1)));
+        colsInput.value = String(Math.max(1, Math.round(Number(colsInput.value) || 1)));
+      }
+
+      function resizeCanvasToDisplaySize() {
+        const dpr = window.devicePixelRatio || 1;
+        const width = Math.max(1, Math.round(window.innerWidth * dpr));
+        const height = Math.max(1, Math.round(window.innerHeight * dpr));
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function drawGrid() {
+        if (!state.gridVisible) {
+          return;
+        }
+
+        syncIntegerInputs();
+        resizeCanvasToDisplaySize();
+
+        const { diameterMm, spacingMm, rows, cols } = getGridSettings();
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const radiusPx = diameterMm * state.pxPerMm / 2;
+        const spacingPx = spacingMm * state.pxPerMm;
+        const xOffsetPx = spacingPx / 2;
+        const patternWidthPx = (cols - 1) * spacingPx + xOffsetPx + diameterMm * state.pxPerMm;
+        const patternHeightPx = (rows - 1) * spacingPx + diameterMm * state.pxPerMm;
+        const startX = (width - patternWidthPx) / 2 + radiusPx;
+        const startY = (height - patternHeightPx) / 2 + radiusPx;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = "#000000";
+
+        for (let row = 0; row < rows; row += 1) {
+          const rowShift = row % 2 === 0 ? 0 : xOffsetPx;
+          for (let col = 0; col < cols; col += 1) {
+            const x = startX + rowShift + col * spacingPx;
+            const y = startY + row * spacingPx;
+            ctx.beginPath();
+            ctx.arc(x, y, radiusPx, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        gridMetrics.innerHTML = [
+          `スケール: ${state.pxPerMm.toFixed(3)} px/mm`,
+          `パターン外形: ${(patternWidthPx / state.pxPerMm).toFixed(2)} mm × ${(patternHeightPx / state.pxPerMm).toFixed(2)} mm`,
+          `円数: ${rows * cols}`
+        ].join("<br>");
+      }
+
+      function enterGridMode() {
+        state.gridVisible = true;
+        calibrationView.style.display = "none";
+        gridView.style.display = "block";
+        drawGrid();
+      }
+
+      function enterCalibrationMode() {
+        state.gridVisible = false;
+        gridView.style.display = "none";
+        calibrationView.style.display = "grid";
+        updateCalibrationFrame();
+      }
+
+      scaleRange.addEventListener("input", updateCalibrationFrame);
+      decreaseScale.addEventListener("click", () => adjustScale(-0.1));
+      increaseScale.addEventListener("click", () => adjustScale(0.1));
+      showGrid.addEventListener("click", enterGridMode);
+      redrawGrid.addEventListener("click", drawGrid);
+      backToCalibration.addEventListener("click", enterCalibrationMode);
+
+      [diameterInput, spacingInput, rowsInput, colsInput].forEach((input) => {
+        input.addEventListener("input", drawGrid);
+        input.addEventListener("change", drawGrid);
+      });
+
+      window.addEventListener("resize", drawGrid);
+
+      updateCalibrationFrame();
+    })();
+  </script>
+</body>
+</html>
