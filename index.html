@@ -453,6 +453,7 @@
       const CREDIT_CARD_WIDTH_MM = 85.60;
       const CREDIT_CARD_HEIGHT_MM = 53.98;
       const DEFAULT_PX_PER_MM = 96 / 25.4;
+      const STORAGE_KEY = "opencvAsymmetricCircleGrid.pxPerMm";
 
       const state = {
         pxPerMm: DEFAULT_PX_PER_MM,
@@ -484,12 +485,44 @@
         document.documentElement.style.setProperty("--app-height", `${viewportHeight}px`);
       }
 
+      function getScaleBounds() {
+        return {
+          min: Number(scaleRange.min),
+          max: Number(scaleRange.max)
+        };
+      }
+
       function clampNumber(value, min, fallback) {
         const number = Number(value);
         if (!Number.isFinite(number) || number < min) {
           return fallback;
         }
         return number;
+      }
+
+      function clampScale(value) {
+        const { min, max } = getScaleBounds();
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function restoreSavedScale() {
+        try {
+          const savedValue = window.localStorage.getItem(STORAGE_KEY);
+          const savedScale = Number(savedValue);
+          if (Number.isFinite(savedScale)) {
+            scaleRange.value = clampScale(savedScale).toFixed(2);
+          }
+        } catch (error) {
+          // Storage can be unavailable in restrictive browser modes; calibration still works.
+        }
+      }
+
+      function saveScale() {
+        try {
+          window.localStorage.setItem(STORAGE_KEY, String(state.pxPerMm));
+        } catch (error) {
+          // Ignore storage failures so the grid flow remains usable offline.
+        }
       }
 
       function updateCalibrationFrame() {
@@ -502,9 +535,7 @@
       }
 
       function adjustScale(delta) {
-        const min = Number(scaleRange.min);
-        const max = Number(scaleRange.max);
-        const next = Math.min(max, Math.max(min, Number(scaleRange.value) + delta));
+        const next = clampScale(Number(scaleRange.value) + delta);
         scaleRange.value = next.toFixed(2);
         updateCalibrationFrame();
       }
@@ -577,6 +608,7 @@
       }
 
       function enterGridMode() {
+        saveScale();
         state.gridVisible = true;
         calibrationView.style.display = "none";
         gridView.style.display = "block";
@@ -611,6 +643,7 @@
       }
 
       updateViewportHeight();
+      restoreSavedScale();
       updateCalibrationFrame();
     })();
   </script>
