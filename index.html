@@ -209,7 +209,7 @@
 
     .calibration-controls {
       display: grid;
-      grid-template-columns: auto 1fr auto auto auto;
+      grid-template-columns: auto 1fr auto auto auto auto auto;
       align-items: center;
       gap: 10px;
       border-top: 1px solid var(--line);
@@ -229,10 +229,16 @@
     }
 
     .stepper {
-      width: 38px;
+      width: 42px;
       padding: 0;
-      font-size: 20px;
+      font-size: 18px;
       line-height: 1;
+    }
+
+    .stepper.fine {
+      width: 52px;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
     }
 
     .grid-view {
@@ -362,7 +368,7 @@
       }
 
       .calibration-controls {
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
         position: sticky;
         bottom: 0;
       }
@@ -401,8 +407,10 @@
       <div class="calibration-controls">
         <label for="scaleRange">カード枠サイズ</label>
         <input id="scaleRange" type="range" min="2" max="16" step="0.01" value="3.7795">
-        <button id="decreaseScale" class="secondary stepper" type="button" aria-label="縮小">−</button>
-        <button id="increaseScale" class="secondary stepper" type="button" aria-label="拡大">+</button>
+        <button id="decreaseScale" class="secondary stepper" type="button" aria-label="粗く縮小">−</button>
+        <button id="increaseScale" class="secondary stepper" type="button" aria-label="粗く拡大">+</button>
+        <button id="decreaseFineScale" class="secondary stepper fine" type="button" aria-label="細かく縮小">−0.01</button>
+        <button id="increaseFineScale" class="secondary stepper fine" type="button" aria-label="細かく拡大">+0.01</button>
         <button id="showGrid" class="primary-action" type="button">グリッド表示モード</button>
       </div>
     </section>
@@ -459,6 +467,8 @@
       const showGrid = document.getElementById("showGrid");
       const decreaseScale = document.getElementById("decreaseScale");
       const increaseScale = document.getElementById("increaseScale");
+      const decreaseFineScale = document.getElementById("decreaseFineScale");
+      const increaseFineScale = document.getElementById("increaseFineScale");
       const canvas = document.getElementById("gridCanvas");
       const ctx = canvas.getContext("2d");
       const diameterInput = document.getElementById("diameterMm");
@@ -583,6 +593,8 @@
       scaleRange.addEventListener("input", updateCalibrationFrame);
       decreaseScale.addEventListener("click", () => adjustScale(-0.1));
       increaseScale.addEventListener("click", () => adjustScale(0.1));
+      decreaseFineScale.addEventListener("click", () => adjustScale(-0.01));
+      increaseFineScale.addEventListener("click", () => adjustScale(0.01));
       showGrid.addEventListener("click", enterGridMode);
       redrawGrid.addEventListener("click", drawGrid);
       backToCalibration.addEventListener("click", enterCalibrationMode);
